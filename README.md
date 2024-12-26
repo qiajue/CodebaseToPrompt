@@ -10,7 +10,6 @@ Convert any local directory into a structured XML prompt for Large Language Mode
 - **XML Output**: Generates clean, structured XML format ideal for LLM prompts
 - **Local Processing**: All processing happens in your browser - no files are uploaded
 - **Persistence**: Saves your selections between sessions
-- **Keyboard Navigation**: Full keyboard support for power users
 
 ## 🛠️ Quick Start
 
