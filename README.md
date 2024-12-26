@@ -2,6 +2,8 @@
 
 Convert any local directory into a structured XML prompt for Large Language Models (LLMs). This tool helps you prepare codebases for analysis, code review, or documentation generation using AI models.
 
+![User Interface](UI.jpg)
+
 ## 🚀 Features
 
 - **Interactive File Tree**: Visual interface to select/deselect files and folders
