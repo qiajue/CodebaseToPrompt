@@ -335,7 +335,20 @@ class FileTreeViewer {
             return count;
         };
 
+        // Calculate total characters in selected files
+        const calculateTokens = () => {
+            let totalChars = 0;
+            for (const path of this.selectedPaths) {
+                const content = this.fileContents[path];
+                if (content) {
+                    totalChars += content.length;
+                }
+            }
+            return Math.ceil(totalChars / 4); // Estimate tokens by dividing char count by 4
+        };
+
         document.getElementById('selectedCount').textContent = countSelectedFiles().toString();
+        document.getElementById('estimatedTokens').textContent = calculateTokens().toString();
     }
 
     formatSize(bytes) {
