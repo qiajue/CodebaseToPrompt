@@ -547,6 +547,37 @@ class FileTreeViewer {
 
         selectedFilesContent.textContent = content.join('\n\n');
     }
+
+    clearAll() {
+        // Clear all data structures
+        this.root = null;
+        this.selectedPaths.clear();
+        this.fileContents = {};
+        this.treeStructure = null;
+        
+        // Clear localStorage
+        localStorage.removeItem('selectedPaths');
+        localStorage.removeItem('fileContents');
+        localStorage.removeItem('treeStructure');
+        
+        // Reset stats
+        this.resetStats();
+        this.updateStats();
+        
+        // Clear the file input
+        document.getElementById('directoryInput').value = '';
+        
+        // Re-render the tree (will show upload message)
+        this.renderTree();
+        
+        // Clear the selected files content
+        this.updateSelectedFilesContent();
+
+        // Force a hard reload of the page
+        // window.location.href = window.location.href + '?t=' + Date.now();
+        // Alternative: 
+        window.location.reload(true); // true forces reload from server
+    }
 }
 
 // Initialize the app
