@@ -488,22 +488,63 @@ class FileTreeViewer {
         });
     }
 
+    generateAsciiTree() {
+        const generateBranch = (node, prefix = '', isLast = true) => {
+            if (!node.selected && !this.hasSelectedDescendant(node)) {
+                return '';
+            }
+
+            const connector = isLast ? '└── ' : '├── ';
+            const childPrefix = isLast ? '    ' : '│   ';
+            
+            let result = prefix + connector + node.name + '\n';
+
+            if (node.children) {
+                const visibleChildren = node.children.filter(child => 
+                    child.selected || this.hasSelectedDescendant(child)
+                );
+                
+                visibleChildren.forEach((child, index) => {
+                    result += generateBranch(
+                        child,
+                        prefix + childPrefix,
+                        index === visibleChildren.length - 1
+                    );
+                });
+            }
+
+            return result;
+        };
+
+        return generateBranch(this.root);
+    }
+
+    hasSelectedDescendant(node) {
+        if (!node.children) return false;
+        return node.children.some(child => 
+            child.selected || this.hasSelectedDescendant(child)
+        );
+    }
+
     async updateSelectedFilesContent() {
         const selectedFilesContent = document.getElementById('selectedFilesContent');
-        let content = [];  // Use array to store documents
+        let content = [];
 
+        // Add ASCII tree as first element
+        const asciiTree = this.generateAsciiTree();
+        content.push(`<folder-structure>\n${asciiTree}</folder-structure>\n`);
+
+        // Add selected files
         for (const path of this.selectedPaths) {
             const node = this.findNode(path);
             if (node && !node.isDir) {
                 const text = this.fileContents[path];
                 if (text) {
-                    // Each document is a separate array element
-                    content.push(`<document path="${path}">\n${text}\n</document>\n\n`);
+                    content.push(`<document path="${path}">\n${text}\n</document>`);
                 }
             }
         }
 
-        // Join with double newlines, ensuring each document starts at margin
         selectedFilesContent.textContent = content.join('\n\n');
     }
 }

@@ -30,16 +30,14 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: 300px 1fr;
+            display: block;
             gap: 1rem;
         }
 
-        .options-panel {
-            background-color: #f9fafb;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            border: 1px solid var(--border-color);
+        .header-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
         }
 
         .form-group {
@@ -191,17 +189,11 @@
 </head>
 <body>
     <div class="container">
-        <div class="options-panel">
-            <div class="form-group">
-                <label for="directoryInput" class="button primary">Select Directory</label>
-                <input type="file" id="directoryInput" webkitdirectory directory multiple style="display: none;">
-            </div>
-        </div>
-
         <div class="tree-container">
             <div class="tree-header">
-                <h2>Select Files</h2>
-                <div class="tree-controls">
+                <div class="header-controls">
+                    <label for="directoryInput" class="button primary">Select Directory</label>
+                    <input type="file" id="directoryInput" webkitdirectory directory multiple style="display: none;">
                     <button id="expandAllButton" class="button">Expand All</button>
                     <button id="collapseAllButton" class="button">Collapse All</button>
                     <button id="selectAllButton" class="button">Select All</button>
