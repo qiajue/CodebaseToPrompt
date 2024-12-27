@@ -62,6 +62,7 @@ class FileTreeViewer {
         document.getElementById('collapseAllButton').addEventListener('click', () => this.toggleAll(false));
         document.getElementById('selectAllButton').addEventListener('click', () => this.selectAll(true));
         document.getElementById('deselectAllButton').addEventListener('click', () => this.selectAll(false));
+        document.getElementById('clearButton').addEventListener('click', () => this.clearAll());
     }
 
     async isTextFile(file) {
@@ -576,7 +577,7 @@ class FileTreeViewer {
         // Force a hard reload of the page
         // window.location.href = window.location.href + '?t=' + Date.now();
         // Alternative: 
-        window.location.reload(true); // true forces reload from server
+        location.reload(true); // true forces reload from server
     }
 }
 
