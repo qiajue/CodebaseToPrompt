@@ -39,6 +39,14 @@
         display: flex;
         gap: 0.5rem;
         align-items: center;
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .header-controls-left {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
       }
 
       .form-group {
@@ -64,7 +72,7 @@
       }
 
       .button {
-        padding: 0.5rem 1rem;
+        padding: 0.5rem;
         border: 1px solid var(--border-color);
         border-radius: 0.25rem;
         background-color: white;
@@ -83,6 +91,7 @@
         background-color: var(--hover-color);
         border-color: var(--hover-color);
         color: white;
+        padding: 0.5rem 1rem;
       }
 
       .tree-container {
@@ -186,6 +195,56 @@
         white-space: pre;
         margin: 0;
       }
+
+      .button-group {
+        margin-left: 1rem;
+        display: flex;
+        gap: 0.25rem;
+        border-radius: 0.25rem;
+      }
+
+      .button-group .button {
+        border-radius: 0;
+      }
+
+      .button-group .button:first-child {
+        border-top-left-radius: 0.25rem;
+        border-bottom-left-radius: 0.25rem;
+      }
+
+      .button-group .button:last-child {
+        border-top-right-radius: 0.25rem;
+        border-bottom-right-radius: 0.25rem;
+      }
+
+      .button .icon {
+        display: inline-block;
+        margin-right: 0;
+      }
+
+      .button span:not(.icon) {
+        display: none;
+      }
+
+      .button-group:hover .button span:not(.icon) {
+        display: inline-block;
+        margin-left: 0.25rem;
+      }
+
+      .button-group:hover .button {
+        padding: 0.5rem 1rem;
+      }
+
+      .button.danger {
+        border-color: #dc2626;
+        color: #dc2626;
+      }
+
+      .button.danger:hover {
+        background-color: #dc2626;
+        border-color: #dc2626;
+        color: white;
+      }
     </style>
   </head>
   <body>
@@ -193,20 +252,36 @@
       <div class="tree-container">
         <div class="tree-header">
           <div class="header-controls">
-            <label for="directoryInput" class="button primary">Select Directory</label>
-            <input
-              type="file"
-              id="directoryInput"
-              webkitdirectory
-              directory
-              multiple
-              style="display: none"
-            />
-            <button id="expandAllButton" class="button">Expand All</button>
-            <button id="collapseAllButton" class="button">Collapse All</button>
-            <button id="selectAllButton" class="button">Select All</button>
-            <button id="deselectAllButton" class="button">Deselect All</button>
-            <button id="clearButton" class="button">Clear</button>
+            <div class="header-controls-left">
+              <label for="directoryInput" class="button primary">Select Directory</label>
+              <input
+                type="file"
+                id="directoryInput"
+                webkitdirectory
+                directory
+                multiple
+                style="display: none"
+              />
+              <div class="button-group">
+                <button id="expandAllButton" class="button" title="Expand all folders">
+                  <span class="icon">▼</span><span>Expand All</span>
+                </button>
+                <button id="collapseAllButton" class="button" title="Collapse all folders">
+                  <span class="icon">▶</span><span>Collapse All</span>
+                </button>
+              </div>
+              <div class="button-group">
+                <button id="selectAllButton" class="button" title="Select all files">
+                  <span class="icon">☑</span><span>Select All</span>
+                </button>
+                <button id="deselectAllButton" class="button" title="Deselect all files">
+                  <span class="icon">☐</span><span>Deselect All</span>
+                </button>
+              </div>
+            </div>
+            <button id="clearButton" class="button danger" title="Clear all files">
+              <span class="icon">×</span><span>Clear</span>
+            </button>
           </div>
         </div>
 
