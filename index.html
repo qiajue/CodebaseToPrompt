@@ -284,10 +284,30 @@
         border-color: #dc2626;
         color: white;
       }
+
+      .mobile-warning {
+        display: none;
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        color: #856404;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0.25rem;
+        text-align: center;
+      }
+
+      @media (max-width: 768px) {
+        .mobile-warning {
+          display: block;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="container">
+      <div class="mobile-warning">
+        ⚠ This tool is optimized for larger screens. Mobile functionality is basic.
+      </div>
       <div class="tree-container">
         <div class="tree-header">
           <div class="header-controls">
