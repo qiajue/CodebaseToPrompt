@@ -2,7 +2,7 @@
 
 Convert any local directory into a structured XML prompt for Large Language Models (LLMs). This tool helps you prepare codebases for analysis, code review, or documentation generation using AI models.
 
-[![User Interface](UI.jpg)](https://path-find-er.github.io/CodebaseToPrompt/)
+[![User Interface](UI.png)](https://path-find-er.github.io/CodebaseToPrompt/)
 
 Try it now: [CodebaseToPrompt Web App](https://path-find-er.github.io/CodebaseToPrompt/)
 
