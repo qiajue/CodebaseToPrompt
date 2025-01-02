@@ -130,6 +130,84 @@ const actions = {
   },
 };
 
+// Spreadsheet detection
+function isSpreadsheet(filename) {
+  if (!filename) return false;
+
+  const spreadsheetExtensions = ['.xls', '.xlsx', '.xlsm', '.xlsb', '.xlt', '.ods', '.fods', '.numbers'];
+  const lower = filename.toLowerCase();
+  return spreadsheetExtensions.some((ext) => lower.endsWith(ext));
+}
+
+function isPDF(filename) {
+  if (!filename) return false;
+  return filename.toLowerCase().endsWith('.pdf');
+}
+
+async function parsePDFFile(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const typedArray = new Uint8Array(arrayBuffer);
+    const loadingTask = pdfjsLib.getDocument({ data: typedArray });
+    const pdf = await loadingTask.promise;
+    let textOutput = '';
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+
+      // Filter out empty strings and join with proper spacing
+      const pageText = textContent.items
+        .filter((item) => item.str.trim().length > 0)
+        .map((item) => {
+          // Handle different types of spaces and line breaks
+          if (item.hasEOL) return item.str + '\n';
+          return item.str + ' ';
+        })
+        .join('')
+        .replace(/\s+/g, ' ') // Normalize multiple spaces
+        .trim();
+
+      if (pageText) {
+        textOutput += pageText + '\n\n';
+      }
+    }
+
+    return textOutput.trim();
+  } catch (err) {
+    console.error('PDF parsing error:', err);
+    throw new Error(`Failed to parse PDF: ${err.message}`);
+  }
+}
+
+async function parseSpreadsheetFile(file) {
+  // Return a Promise that resolves to a text representation of the spreadsheet
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        let textOutput = '';
+
+        // Convert each sheet in the workbook to CSV and append
+        workbook.SheetNames.forEach((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          const csv = XLSX.utils.sheet_to_csv(worksheet);
+          textOutput += `Sheet: ${sheetName}\n${csv}\n\n`;
+        });
+
+        resolve(textOutput.trim());
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = (err) => reject(err);
+    // Read the spreadsheet file as an ArrayBuffer
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 class FileTreeViewer {
   constructor(store) {
     this.store = store;
@@ -137,13 +215,57 @@ class FileTreeViewer {
 
     // Adjust these ignored paths as needed
     this.IGNORED_DIRECTORIES = ['node_modules', 'venv', '.git', '__pycache__', '.idea', '.vscode'];
-    this.IGNORED_FILES = ['.DS_Store', 'Thumbs.db', '.env', '*.pyc'];
+    this.IGNORED_FILES = [
+      '.DS_Store',
+      'Thumbs.db',
+      '.env',
+      '.pyc',
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.mp4',
+      '.mov',
+      '.avi',
+      '.webp',
+      '.mkv',
+      '.wmv',
+      '.flv',
+      '.svg',
+      '.zip',
+      '.tar',
+      '.gz', 
+      '.rar',
+      '.exe',
+      '.bin',
+      '.iso',
+      '.dll',
+      '.psd',
+      '.ai',
+      '.eps',
+      '.tiff',
+      '.woff',
+      '.woff2',
+      '.ttf',
+      '.otf',
+      '.flac',
+      '.m4a',
+      '.aac',
+      '.mov',
+      '.3gp',
+    ];
 
     this.store.subscribe(this.handleStateChange.bind(this));
     this.setupEventListeners();
   }
 
   async isTextFile(file) {
+    // If it's a spreadsheet or PDF, treat them as "extractable text"
+    if (isSpreadsheet(file.name) || isPDF(file.name)) {
+      return true;
+    }
+
+    // Existing binary detection logic for other files
     const slice = file.slice(0, 4096);
     const text = await slice.text();
     const printableChars = text.match(/[\x20-\x7E\n\r\t\u00A0-\u02AF\u0370-\u1CFF]/g);
@@ -152,7 +274,16 @@ class FileTreeViewer {
 
   async handleFileSelect(event) {
     const files = Array.from(event.target.files || []).filter(
-      (file) => !this.IGNORED_DIRECTORIES.some((dir) => file.webkitRelativePath.split('/').includes(dir))
+      (file) =>
+        !this.IGNORED_DIRECTORIES.some((dir) => file.webkitRelativePath.split('/').includes(dir)) &&
+        !this.IGNORED_FILES.some((ignoredFile) => {
+          // If ignoredFile starts with a dot, treat it as an extension
+          if (ignoredFile.startsWith('.')) {
+            return file.name.toLowerCase().endsWith(ignoredFile.toLowerCase());
+          }
+          // Otherwise, do an exact filename match
+          return file.name === ignoredFile;
+        })
     );
 
     if (!files.length) return;
@@ -166,10 +297,21 @@ class FileTreeViewer {
     this.store.dispatch(actions.setRoot(root));
 
     for (const file of files) {
-      if (fileTypeMap.get(file.webkitRelativePath)) {
-        const text = await file.text();
-        this.store.dispatch(actions.setFileContents(file.webkitRelativePath, text));
+      if (!fileTypeMap.get(file.webkitRelativePath)) {
+        // Skip binary or unsupported formats
+        continue;
       }
+
+      let text = '';
+      if (isSpreadsheet(file.name)) {
+        text = await parseSpreadsheetFile(file);
+      } else if (isPDF(file.name)) {
+        text = await parsePDFFile(file); // PDF ADDITION
+      } else {
+        text = await file.text();
+      }
+
+      this.store.dispatch(actions.setFileContents(file.webkitRelativePath, text));
     }
 
     this.store.dispatch(actions.updateStats());
@@ -521,6 +663,7 @@ function calculateTokens(fileContents, selectedPaths) {
       totalChars += content.length;
     }
   }
+  // Estimate 1 token per 4 characters as a rough approximation
   return Math.ceil(totalChars / 4);
 }
 
