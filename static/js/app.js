@@ -228,7 +228,16 @@ class FileTreeViewer {
         '<div class="upload-message">Select a directory to view its contents</div>';
       return;
     }
+
+    // Render the tree HTML
     this.container.innerHTML = this.renderNode(state.root);
+
+    // After the container has been populated, set `indeterminate` on each checkbox
+    const allCheckboxes = this.container.querySelectorAll('.tree-checkbox');
+    allCheckboxes.forEach((checkbox) => {
+      const isIndeterminate = checkbox.getAttribute('data-indeterminate') === 'true';
+      checkbox.indeterminate = isIndeterminate;
+    });
   }
 
   renderNode(node, level = 0) {
@@ -242,26 +251,37 @@ class FileTreeViewer {
       ? '📄'
       : '📦';
 
+    // Calculate selection state for folders or files
+    const selectionState = node.isDir
+      ? this.getFolderSelectionState(node)
+      : {
+          checked: state.selectedPaths.has(node.path),
+          indeterminate: false,
+        };
+
     let html = `
-            <div class="tree-node" style="margin-left: ${indent}px" data-path="${node.path}">
-                <div class="tree-node-content">
-                    ${
-                      node.isTextFile !== false
-                        ? `
-                        <input type="checkbox" 
-                               class="tree-checkbox" 
-                               ${state.selectedPaths.has(node.path) ? 'checked' : ''}
-                               data-path="${node.path}">
-                    `
-                        : ''
-                    }
-                    <span class="tree-node-icon">${icon}</span>
-                    <span class="tree-node-name">${node.name}${
+      <div class="tree-node" style="margin-left: ${indent}px" data-path="${node.path}">
+        <div class="tree-node-content">
+          ${
+            node.isTextFile !== false
+              ? `
+                <input
+                  type="checkbox"
+                  class="tree-checkbox"
+                  data-path="${node.path}"
+                  ${selectionState.checked ? 'checked' : ''}
+                  data-indeterminate="${selectionState.indeterminate}"
+                >
+              `
+              : ''
+          }
+          <span class="tree-node-icon">${icon}</span>
+          <span class="tree-node-name">${node.name}${
       node.size ? ` (${this.formatSize(node.size)})` : ''
     }</span>
-                </div>
-            </div>
-        `;
+        </div>
+      </div>
+    `;
 
     if (node.isDir && state.expandedNodes.has(node.path) && node.children) {
       const sortedChildren = [...node.children].sort((a, b) => {
@@ -307,7 +327,13 @@ class FileTreeViewer {
 
   toggleNodeSelection(node) {
     const state = this.store.getState();
-    const selected = !state.selectedPaths.has(node.path);
+    // For folders, we look at whether it's fully checked or partially/un-checked
+    const selectionState = node.isDir
+      ? this.getFolderSelectionState(node)
+      : { checked: state.selectedPaths.has(node.path) };
+
+    // If folder is indeterminate or unchecked, select all. If fully checked, deselect all
+    const selected = node.isDir ? !selectionState.checked : !selectionState.checked;
 
     const updateNode = (currentNode) => {
       if (!currentNode.isDir && currentNode.isTextFile) {
@@ -414,6 +440,7 @@ class FileTreeViewer {
     if (!state.root) return '';
 
     const generateBranch = (node, prefix = '', isLast = true) => {
+      // If neither this node nor its descendants are selected, skip
       if (!state.selectedPaths.has(node.path) && !this.hasSelectedDescendant(node)) {
         return '';
       }
@@ -435,7 +462,7 @@ class FileTreeViewer {
       return result;
     };
 
-    return generateBranch(this.store.getState().root);
+    return generateBranch(state.root);
   }
 
   hasSelectedDescendant(node) {
@@ -459,6 +486,30 @@ class FileTreeViewer {
     document.getElementById('selectedFilesContent').textContent = this.generateSelectedContent();
     document.getElementById('selectedCount').textContent = state.stats.selectedCount;
     document.getElementById('estimatedTokens').textContent = state.stats.totalTokens;
+  }
+
+  // A helper method to determine how many files are selected in a folder
+  getFolderSelectionState(node) {
+    const state = this.store.getState();
+    let totalFiles = 0;
+    let selectedFiles = 0;
+
+    const countFiles = (currentNode) => {
+      if (!currentNode.isDir && currentNode.isTextFile) {
+        totalFiles++;
+        if (state.selectedPaths.has(currentNode.path)) {
+          selectedFiles++;
+        }
+      }
+      currentNode.children?.forEach(countFiles);
+    };
+
+    countFiles(node);
+
+    return {
+      checked: totalFiles > 0 && selectedFiles === totalFiles,
+      indeterminate: selectedFiles > 0 && selectedFiles < totalFiles,
+    };
   }
 }
 
