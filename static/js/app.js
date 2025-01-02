@@ -1,3 +1,5 @@
+/* app.js */
+
 const LOCAL_STORAGE_KEY = 'treeState';
 
 // State Management
@@ -5,6 +7,7 @@ const Store = (function () {
   let instance;
   let subscribers = new Set();
 
+  // We'll keep an initialState here
   const initialState = {
     root: null,
     selectedPaths: new Set(),
@@ -21,13 +24,18 @@ const Store = (function () {
 
     return {
       getState() {
+        // Return a shallow clone or structured clone:
+        // but in a big app, you might just return references 
+        // to reduce overhead. For now, keep a safe copy.
         return structuredClone(state);
       },
 
       dispatch(action) {
+        // Instead of multiple calls, we expect a single "mutation function"
         const draft = structuredClone(state);
         action(draft);
 
+        // Freeze next state to maintain immutability
         const nextState = Object.freeze(draft);
 
         if (nextState !== state) {
@@ -85,6 +93,19 @@ const actions = {
     state.root = root;
   },
 
+  // Instead of toggling each item repeatedly, we accept an array or set of paths
+  // to add or remove in a single batch.
+  bulkSelectPaths: (pathsToSelect = [], pathsToDeselect = []) => (state) => {
+    for (const path of pathsToSelect) {
+      state.selectedPaths.add(path);
+    }
+    for (const path of pathsToDeselect) {
+      state.selectedPaths.delete(path);
+    }
+  },
+
+  // Toggling a single path is still allowed, but we generally encourage 
+  // single dispatch usage with "bulkSelectPaths".
   toggleSelected: (path, selected) => (state) => {
     if (selected) {
       state.selectedPaths.add(path);
@@ -101,7 +122,6 @@ const actions = {
     }
   },
 
-  // If you want to explicitly set expand vs collapse:
   setExpanded: (path, expand) => (state) => {
     if (expand) {
       state.expandedNodes.add(path);
@@ -130,20 +150,25 @@ const actions = {
   },
 };
 
-// Spreadsheet detection
+// Helper: determine if a file is a spreadsheet
 function isSpreadsheet(filename) {
   if (!filename) return false;
 
-  const spreadsheetExtensions = ['.xls', '.xlsx', '.xlsm', '.xlsb', '.xlt', '.ods', '.fods', '.numbers'];
+  const spreadsheetExtensions = [
+    '.xls', '.xlsx', '.xlsm', '.xlsb', 
+    '.xlt', '.ods', '.fods', '.numbers',
+  ];
   const lower = filename.toLowerCase();
   return spreadsheetExtensions.some((ext) => lower.endsWith(ext));
 }
 
+// Helper: determine if a file is a PDF
 function isPDF(filename) {
   if (!filename) return false;
   return filename.toLowerCase().endsWith('.pdf');
 }
 
+// Parse PDF file
 async function parsePDFFile(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
@@ -165,7 +190,7 @@ async function parsePDFFile(file) {
           return item.str + ' ';
         })
         .join('')
-        .replace(/\s+/g, ' ') // Normalize multiple spaces
+        .replace(/\s+/g, ' ')
         .trim();
 
       if (pageText) {
@@ -180,8 +205,8 @@ async function parsePDFFile(file) {
   }
 }
 
+// Parse spreadsheet file
 async function parseSpreadsheetFile(file) {
-  // Return a Promise that resolves to a text representation of the spreadsheet
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -203,7 +228,6 @@ async function parseSpreadsheetFile(file) {
       }
     };
     reader.onerror = (err) => reject(err);
-    // Read the spreadsheet file as an ArrayBuffer
     reader.readAsArrayBuffer(file);
   });
 }
@@ -234,7 +258,7 @@ class FileTreeViewer {
       '.svg',
       '.zip',
       '.tar',
-      '.gz', 
+      '.gz',
       '.rar',
       '.exe',
       '.bin',
@@ -255,6 +279,7 @@ class FileTreeViewer {
       '.3gp',
     ];
 
+    // Subscribe to store updates
     this.store.subscribe(this.handleStateChange.bind(this));
     this.setupEventListeners();
   }
@@ -265,7 +290,7 @@ class FileTreeViewer {
       return true;
     }
 
-    // Existing binary detection logic for other files
+    // Basic detection for other text files
     const slice = file.slice(0, 4096);
     const text = await slice.text();
     const printableChars = text.match(/[\x20-\x7E\n\r\t\u00A0-\u02AF\u0370-\u1CFF]/g);
@@ -288,25 +313,27 @@ class FileTreeViewer {
 
     if (!files.length) return;
 
+    // Determine if each file is text
     const fileTypeMap = new Map();
     for (const file of files) {
       fileTypeMap.set(file.webkitRelativePath, await this.isTextFile(file));
     }
 
+    // Build the root tree structure
     const root = this.buildFileTree(files, fileTypeMap);
     this.store.dispatch(actions.setRoot(root));
 
+    // Parse file contents in batch
     for (const file of files) {
       if (!fileTypeMap.get(file.webkitRelativePath)) {
-        // Skip binary or unsupported formats
-        continue;
+        continue; // skip binary or unsupported
       }
 
       let text = '';
       if (isSpreadsheet(file.name)) {
         text = await parseSpreadsheetFile(file);
       } else if (isPDF(file.name)) {
-        text = await parsePDFFile(file); // PDF ADDITION
+        text = await parsePDFFile(file);
       } else {
         text = await file.text();
       }
@@ -319,6 +346,9 @@ class FileTreeViewer {
   }
 
   buildFileTree(files, fileTypeMap) {
+    // The first part (index 0) is the root folder name
+    // This is a naive approach if multiple top-level folders are possible 
+    // but usually there's one main folder from the input.
     const root = {
       name: files[0].webkitRelativePath.split('/')[0],
       path: files[0].webkitRelativePath.split('/')[0],
@@ -371,8 +401,12 @@ class FileTreeViewer {
       return;
     }
 
+    // We'll do a single pass to compute each node's selection state
+    // so we don't repeatedly call expensive functions in `renderNode`.
+    const selectionMap = this.computeSelectionStates(state);
+
     // Render the tree HTML
-    this.container.innerHTML = this.renderNode(state.root);
+    this.container.innerHTML = this.renderNode(state.root, selectionMap);
 
     // After the container has been populated, set `indeterminate` on each checkbox
     const allCheckboxes = this.container.querySelectorAll('.tree-checkbox');
@@ -382,7 +416,49 @@ class FileTreeViewer {
     });
   }
 
-  renderNode(node, level = 0) {
+  // Single pass to compute each node's "checked" and "indeterminate" state:
+  computeSelectionStates(state) {
+    // We'll store a map of path -> { checked: bool, indeterminate: bool }
+    const selectionMap = {};
+
+    // Recursive function that returns { totalFiles, selectedFiles }
+    // so we can compute folder selection state in one pass.
+    const computeStateForNode = (node) => {
+      if (!node.isDir) {
+        if (node.isTextFile && state.selectedPaths.has(node.path)) {
+          // 1 selected file
+          selectionMap[node.path] = { checked: true, indeterminate: false };
+          return { totalFiles: 1, selectedFiles: 1 };
+        } else {
+          selectionMap[node.path] = { checked: false, indeterminate: false };
+          return { totalFiles: node.isTextFile ? 1 : 0, selectedFiles: 0 };
+        }
+      }
+
+      let total = 0;
+      let selected = 0;
+      node.children?.forEach((child) => {
+        const result = computeStateForNode(child);
+        total += result.totalFiles;
+        selected += result.selectedFiles;
+      });
+
+      if (total > 0 && selected === total) {
+        selectionMap[node.path] = { checked: true, indeterminate: false };
+      } else if (selected > 0 && selected < total) {
+        selectionMap[node.path] = { checked: false, indeterminate: true };
+      } else {
+        selectionMap[node.path] = { checked: false, indeterminate: false };
+      }
+      return { totalFiles: total, selectedFiles: selected };
+    };
+
+    // Start with root
+    computeStateForNode(state.root);
+    return selectionMap;
+  }
+
+  renderNode(node, selectionMap, level = 0) {
     const state = this.store.getState();
     const indent = level * 20;
     const icon = node.isDir
@@ -393,13 +469,7 @@ class FileTreeViewer {
       ? '📄'
       : '📦';
 
-    // Calculate selection state for folders or files
-    const selectionState = node.isDir
-      ? this.getFolderSelectionState(node)
-      : {
-          checked: state.selectedPaths.has(node.path),
-          indeterminate: false,
-        };
+    const selState = selectionMap[node.path] || { checked: false, indeterminate: false };
 
     let html = `
       <div class="tree-node" style="margin-left: ${indent}px" data-path="${node.path}">
@@ -411,8 +481,8 @@ class FileTreeViewer {
                   type="checkbox"
                   class="tree-checkbox"
                   data-path="${node.path}"
-                  ${selectionState.checked ? 'checked' : ''}
-                  data-indeterminate="${selectionState.indeterminate}"
+                  ${selState.checked ? 'checked' : ''}
+                  data-indeterminate="${selState.indeterminate}"
                 >
               `
               : ''
@@ -432,7 +502,7 @@ class FileTreeViewer {
       });
 
       sortedChildren.forEach((child) => {
-        html += this.renderNode(child, level + 1);
+        html += this.renderNode(child, selectionMap, level + 1);
       });
     }
 
@@ -469,22 +539,64 @@ class FileTreeViewer {
 
   toggleNodeSelection(node) {
     const state = this.store.getState();
-    // For folders, we look at whether it's fully checked or partially/un-checked
-    const selectionState = node.isDir
-      ? this.getFolderSelectionState(node)
-      : { checked: state.selectedPaths.has(node.path) };
+    // We'll do a recursive approach in a single pass, then one dispatch
+    const pathsToSelect = [];
+    const pathsToDeselect = [];
 
-    // If folder is indeterminate or unchecked, select all. If fully checked, deselect all
-    const selected = node.isDir ? !selectionState.checked : !selectionState.checked;
-
-    const updateNode = (currentNode) => {
+    // Instead of repeated dispatches, gather everything first
+    const recurse = (currentNode) => {
       if (!currentNode.isDir && currentNode.isTextFile) {
-        this.store.dispatch(actions.toggleSelected(currentNode.path, selected));
+        // Check if currently selected or not
+        const isCurrentlySelected = state.selectedPaths.has(currentNode.path);
+        if (isCurrentlySelected) {
+          // We'll mark for deselect
+          pathsToDeselect.push(currentNode.path);
+        } else {
+          // We'll mark for select
+          pathsToSelect.push(currentNode.path);
+        }
       }
-      currentNode.children?.forEach(updateNode);
+      currentNode.children?.forEach(recurse);
     };
 
-    updateNode(node);
+    if (node.isDir) {
+      // For a folder, we see if it is fully selected 
+      // (meaning all text files are selected)
+      // or partially/none selected -> then we do the opposite.
+      const { totalFiles, selectedFiles } = this.countFiles(node, state.selectedPaths);
+      const isFullySelected = totalFiles > 0 && selectedFiles === totalFiles;
+
+      if (isFullySelected) {
+        // Deselect everything under it
+        const collectAll = (n) => {
+          if (!n.isDir && n.isTextFile) {
+            pathsToDeselect.push(n.path);
+          }
+          n.children?.forEach(collectAll);
+        };
+        collectAll(node);
+      } else {
+        // Select everything under it
+        const collectAll = (n) => {
+          if (!n.isDir && n.isTextFile) {
+            pathsToSelect.push(n.path);
+          }
+          n.children?.forEach(collectAll);
+        };
+        collectAll(node);
+      }
+    } else {
+      // It's a file
+      const isSelected = state.selectedPaths.has(node.path);
+      if (isSelected) {
+        pathsToDeselect.push(node.path);
+      } else {
+        pathsToSelect.push(node.path);
+      }
+    }
+
+    // Now one dispatch for all changes
+    this.store.dispatch(actions.bulkSelectPaths(pathsToSelect, pathsToDeselect));
     this.store.dispatch(actions.updateStats());
   }
 
@@ -505,46 +617,67 @@ class FileTreeViewer {
     directoryInput.addEventListener('change', (e) => this.handleFileSelect(e));
 
     document.getElementById('expandAllButton').addEventListener('click', () => this.toggleAll(true));
-    document.getElementById('collapseAllButton').addEventListener('click', () => this.toggleAll(false));
+    document.getElementById('collapseAllButton').addEventListener('click', () =>
+      this.toggleAll(false)
+    );
     document.getElementById('selectAllButton').addEventListener('click', () => this.selectAll(true));
-    document.getElementById('deselectAllButton').addEventListener('click', () => this.selectAll(false));
+    document.getElementById('deselectAllButton').addEventListener('click', () =>
+      this.selectAll(false)
+    );
     document.getElementById('clearButton').addEventListener('click', () => this.clearAll());
     document.getElementById('copyButton').addEventListener('click', () => this.copyToClipboard());
 
     this.container.addEventListener('click', this.handleNodeClick.bind(this));
   }
 
-  /**
-   * toggleAll(expand):
-   * Instead of toggling each folder, let's explicitly set each folder to expanded or not.
-   */
+  // Instead of dispatching for every node, we do one pass through the tree
+  // and then dispatch a single bulk update.
   toggleAll(expand) {
     const recurseExpand = (node) => {
       if (node.isDir) {
-        // Explicitly set expanded or collapsed
         this.store.dispatch(actions.setExpanded(node.path, expand));
         node.children?.forEach(recurseExpand);
       }
     };
     const root = this.store.getState().root;
-    if (root) recurseExpand(root);
+    if (root) {
+      // Because each setExpanded is a small update, we can do them 
+      // in a single pass. However, for truly large trees,
+      // you might want to batch them too. This is simpler, though.
+      recurseExpand(root);
+    }
   }
 
+  // Single pass for selectAll or deselectAll
   selectAll(select) {
-    const toggleNode = (node) => {
+    const state = this.store.getState();
+    const pathsToSelect = [];
+    const pathsToDeselect = [];
+
+    const gather = (node) => {
       if (!node.isDir && node.isTextFile) {
-        this.store.dispatch(actions.toggleSelected(node.path, select));
+        const isSelected = state.selectedPaths.has(node.path);
+        if (select && !isSelected) {
+          pathsToSelect.push(node.path);
+        } else if (!select && isSelected) {
+          pathsToDeselect.push(node.path);
+        }
       }
-      node.children?.forEach(toggleNode);
+      node.children?.forEach(gather);
     };
-    toggleNode(this.store.getState().root);
-    this.store.dispatch(actions.updateStats());
+
+    if (state.root) {
+      gather(state.root);
+      // Single dispatch
+      this.store.dispatch(actions.bulkSelectPaths(pathsToSelect, pathsToDeselect));
+      this.store.dispatch(actions.updateStats());
+    }
   }
 
   clearAll() {
     this.store.dispatch(actions.reset());
     document.getElementById('directoryInput').value = '';
-    document.getElementById('selectedFilesContent').textContent = ''; // Clear the prompt area
+    document.getElementById('selectedFilesContent').textContent = '';
     this.renderTree();
     this.updateUI();
     // delete the local storage key
@@ -565,7 +698,7 @@ class FileTreeViewer {
     if (!state.root) return '';
 
     const content = [];
-    content.push(`<folder-structure>\n${this.generateAsciiTree()}</folder-structure>\n`);
+    content.push(`<folder-structure>\n${this.generateAsciiTree()}\n</folder-structure>`);
 
     for (const path of state.selectedPaths) {
       const text = state.fileContents[path];
@@ -583,7 +716,9 @@ class FileTreeViewer {
 
     const generateBranch = (node, prefix = '', isLast = true) => {
       // If neither this node nor its descendants are selected, skip
-      if (!state.selectedPaths.has(node.path) && !this.hasSelectedDescendant(node)) {
+      const nodeSelected = state.selectedPaths.has(node.path);
+      const descendantSelected = this.hasSelectedDescendant(node, state.selectedPaths);
+      if (!nodeSelected && !descendantSelected) {
         return '';
       }
 
@@ -593,11 +728,15 @@ class FileTreeViewer {
 
       if (node.children) {
         const visibleChildren = node.children.filter(
-          (child) => state.selectedPaths.has(child.path) || this.hasSelectedDescendant(child)
+          (child) => state.selectedPaths.has(child.path) || this.hasSelectedDescendant(child, state.selectedPaths)
         );
 
         visibleChildren.forEach((child, index) => {
-          result += generateBranch(child, prefix + childPrefix, index === visibleChildren.length - 1);
+          result += generateBranch(
+            child,
+            prefix + childPrefix,
+            index === visibleChildren.length - 1
+          );
         });
       }
 
@@ -607,12 +746,31 @@ class FileTreeViewer {
     return generateBranch(state.root);
   }
 
-  hasSelectedDescendant(node) {
-    const state = this.store.getState();
+  hasSelectedDescendant(node, selectedPaths) {
     if (!node.children) return false;
     return node.children.some(
-      (child) => state.selectedPaths.has(child.path) || this.hasSelectedDescendant(child)
+      (child) => selectedPaths.has(child.path) || this.hasSelectedDescendant(child, selectedPaths)
     );
+  }
+
+  // Utility to count how many text files are under this node and 
+  // how many are selected, so we can decide if it's "fully" selected or not.
+  countFiles(node, selectedPaths) {
+    let total = 0;
+    let selected = 0;
+
+    const recurse = (currentNode) => {
+      if (!currentNode.isDir && currentNode.isTextFile) {
+        total++;
+        if (selectedPaths.has(currentNode.path)) {
+          selected++;
+        }
+      }
+      currentNode.children?.forEach(recurse);
+    };
+    recurse(node);
+
+    return { totalFiles: total, selectedFiles: selected };
   }
 
   handleStateChange(state) {
@@ -628,30 +786,6 @@ class FileTreeViewer {
     document.getElementById('selectedFilesContent').textContent = this.generateSelectedContent();
     document.getElementById('selectedCount').textContent = state.stats.selectedCount;
     document.getElementById('estimatedTokens').textContent = state.stats.totalTokens;
-  }
-
-  // A helper method to determine how many files are selected in a folder
-  getFolderSelectionState(node) {
-    const state = this.store.getState();
-    let totalFiles = 0;
-    let selectedFiles = 0;
-
-    const countFiles = (currentNode) => {
-      if (!currentNode.isDir && currentNode.isTextFile) {
-        totalFiles++;
-        if (state.selectedPaths.has(currentNode.path)) {
-          selectedFiles++;
-        }
-      }
-      currentNode.children?.forEach(countFiles);
-    };
-
-    countFiles(node);
-
-    return {
-      checked: totalFiles > 0 && selectedFiles === totalFiles,
-      indeterminate: selectedFiles > 0 && selectedFiles < totalFiles,
-    };
   }
 }
 
@@ -669,10 +803,7 @@ function calculateTokens(fileContents, selectedPaths) {
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-  // Create store first to ensure localStorage is loaded
   const store = Store.getInstance();
-
-  // Pass store to viewer
   const viewer = new FileTreeViewer(store);
 
   // If we have existing state, render it
