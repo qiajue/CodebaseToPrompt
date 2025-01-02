@@ -168,6 +168,45 @@
         overflow: hidden;
       }
 
+      @media (max-width: 768px) {
+        .container-split {
+          grid-template-columns: 1fr;
+          height: auto;
+          min-height: calc(100vh - 200px);
+        }
+
+        .header-controls {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 1rem;
+        }
+
+        .header-controls-left {
+          flex-wrap: wrap;
+        }
+
+        .button {
+          padding: 0.75rem;
+          min-height: 44px;
+        }
+
+        .button span:not(.icon) {
+          display: inline-block;
+          margin-left: 0.25rem;
+        }
+
+        .selected-files-panel {
+          border-left: none;
+          border-top: 1px solid var(--border-color);
+          max-height: 50vh;
+        }
+
+        .tree-container {
+          max-height: 100vh;
+          overflow: auto;
+        }
+      }
+
       .selected-files-panel {
         border-left: 1px solid var(--border-color);
         padding: 1rem;
