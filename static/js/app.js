@@ -1,5 +1,3 @@
-/* app.js */
-
 const LOCAL_STORAGE_KEY = 'treeState';
 
 // State Management
@@ -148,6 +146,15 @@ const actions = {
     state.stats.selectedCount = 0;
     state.stats.totalTokens = 0;
   },
+
+  bulkSetExpanded: (pathsToExpand = [], pathsToCollapse = []) => (state) => {
+    for (const path of pathsToExpand) {
+      state.expandedNodes.add(path);
+    }
+    for (const path of pathsToCollapse) {
+      state.expandedNodes.delete(path);
+    }
+  },
 };
 
 // Helper: determine if a file is a spreadsheet
@@ -279,18 +286,37 @@ class FileTreeViewer {
       '.3gp',
     ];
 
+    // Add LIKELY_TEXT_FILES list
+    this.LIKELY_TEXT_FILES = [
+      '.txt', '.md', '.markdown', '.json', '.js', '.ts', '.jsx', '.tsx',
+      '.css', '.scss', '.sass', '.less', '.html', '.htm', '.xml', '.yaml',
+      '.yml', '.ini', '.conf', '.cfg', '.config', '.py', '.rb', '.php',
+      '.java', '.c', '.cpp', '.h', '.hpp', '.cs', '.go', '.rs', '.swift',
+      '.kt', '.kts', '.sh', '.bash', '.zsh', '.fish', '.sql', '.graphql',
+      '.vue', '.svelte', '.astro', '.env.example', '.gitignore', '.dockerignore',
+      '.editorconfig', '.eslintrc', '.prettierrc', '.babelrc', 'LICENSE',
+      'README', 'CHANGELOG', 'TODO', '.csv', '.tsv'
+    ];
+
     // Subscribe to store updates
     this.store.subscribe(this.handleStateChange.bind(this));
     this.setupEventListeners();
   }
 
   async isTextFile(file) {
-    // If it's a spreadsheet or PDF, treat them as "extractable text"
+    // First check known text extensions
+    if (this.LIKELY_TEXT_FILES.some(ext => 
+      file.name.toLowerCase().endsWith(ext.toLowerCase())
+    )) {
+      return true;
+    }
+
+    // Then check spreadsheets and PDFs
     if (isSpreadsheet(file.name) || isPDF(file.name)) {
       return true;
     }
 
-    // Basic detection for other text files
+    // Fall back to content analysis for unknown extensions
     const slice = file.slice(0, 4096);
     const text = await slice.text();
     const printableChars = text.match(/[\x20-\x7E\n\r\t\u00A0-\u02AF\u0370-\u1CFF]/g);
@@ -633,18 +659,25 @@ class FileTreeViewer {
   // Instead of dispatching for every node, we do one pass through the tree
   // and then dispatch a single bulk update.
   toggleAll(expand) {
-    const recurseExpand = (node) => {
+    const state = this.store.getState();
+    const pathsToExpand = [];
+    const pathsToCollapse = [];
+
+    const gather = (node) => {
       if (node.isDir) {
-        this.store.dispatch(actions.setExpanded(node.path, expand));
-        node.children?.forEach(recurseExpand);
+        if (expand) {
+          pathsToExpand.push(node.path);
+        } else {
+          pathsToCollapse.push(node.path);
+        }
+        node.children?.forEach(gather);
       }
     };
-    const root = this.store.getState().root;
-    if (root) {
-      // Because each setExpanded is a small update, we can do them 
-      // in a single pass. However, for truly large trees,
-      // you might want to batch them too. This is simpler, though.
-      recurseExpand(root);
+
+    if (state.root) {
+      gather(state.root);
+      // Single dispatch for all changes
+      this.store.dispatch(actions.bulkSetExpanded(pathsToExpand, pathsToCollapse));
     }
   }
 
