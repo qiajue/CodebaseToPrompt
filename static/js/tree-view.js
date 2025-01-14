@@ -3,13 +3,22 @@ class TreeView extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
 
+    // Add ARIA attributes to root
+    this.setAttribute('role', 'tree');
+    this.setAttribute('aria-multiselectable', 'true');
+    this.setAttribute('aria-label', 'File tree'); // Or use aria-labelledby
+
     // Initialize state
     this._data = null;
     this._selectedPaths = new Set();
     this._expandedPaths = new Set();
+    this._focusedPath = null;
+    this._searchString = '';
+    this._searchTimeout = null;
 
     // Bind methods
     this._handleClick = this._handleClick.bind(this);
+    this._handleKeyDown = this._handleKeyDown.bind(this);
 
     // Create and attach styles
     const style = document.createElement('style');
@@ -17,6 +26,19 @@ class TreeView extends HTMLElement {
         :host {
           display: block;
           font-family: sans-serif;
+          height: 100%;
+          min-height: 0;
+          position: relative;
+          overflow: hidden;
+        }
+        :host > div {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
         }
         .upload-message {
           text-align: center;
@@ -26,28 +48,46 @@ class TreeView extends HTMLElement {
         .tree-node {
           display: block;
           margin: 0;
-          padding: 2px 0;
+          padding: 0px 0px;
         }
         .node-content {
+          border-bottom: 1px solid #e5e7eb;
+          height: 32px;
           display: flex;
           align-items: center;
           cursor: pointer;
+          padding: 6px 8px;
+          border-radius: 4px;
+          transition: all 0.2s ease;
         }
         .node-content:hover {
-          background-color: #f0f8ff;
+          background-color: #e8f0fe;
         }
         .checkbox {
-          margin-right: 6px;
+          margin-right: 8px;
+          cursor: pointer;
+          width: 16px;
+          height: 16px;
         }
         .folder-icon,
         .file-icon {
-          margin-right: 6px;
+          margin-right: 8px;
+          font-size: 1.1em;
+          width: 20px;
+          text-align: center;
         }
         .folder-icon {
           color: #c19a6b;
         }
         .file-icon {
           color: #555;
+        }
+        .node-content:focus {
+          outline: 2px solid #2563eb;
+          background-color: #e8f0fe;
+        }
+        .node-content[aria-selected="true"] {
+          background-color: #e8f0fe;
         }
       `;
     this.shadowRoot.appendChild(style);
@@ -58,6 +98,7 @@ class TreeView extends HTMLElement {
 
     // Add event delegation
     this._container.addEventListener('click', this._handleClick);
+    this._container.addEventListener('keydown', this._handleKeyDown);
   }
 
   // Getters/Setters for properties
@@ -120,6 +161,10 @@ class TreeView extends HTMLElement {
     contentDiv.dataset.path = node.path;
     contentDiv.dataset.type = node.isDir ? 'dir' : 'file';
 
+    // Add proper ARIA roles and states
+    contentDiv.setAttribute('role', 'treeitem');
+    contentDiv.setAttribute('aria-level', level + 1);
+    
     // Add checkbox if needed
     if (node.isDir || node.isTextFile) {
       const checkbox = document.createElement('input');
@@ -128,6 +173,8 @@ class TreeView extends HTMLElement {
       checkbox.checked = checked;
       checkbox.indeterminate = indeterminate;
       contentDiv.appendChild(checkbox);
+      contentDiv.setAttribute('aria-selected', 
+        this._selectedPaths.has(node.path) ? 'true' : 'false');
     }
 
     // Add icon
@@ -150,12 +197,23 @@ class TreeView extends HTMLElement {
         return b.isDir - a.isDir;
       });
 
-      sortedChildren.forEach((child) => {
-        this._renderNode(child, level + 1, nodeDiv);
+      // Create group container for children
+      const groupDiv = document.createElement('div');
+      groupDiv.setAttribute('role', 'group');
+      nodeDiv.appendChild(groupDiv);
+      
+      // Move children rendering into group
+      sortedChildren.forEach(child => {
+        this._renderNode(child, level + 1, groupDiv);
       });
     }
 
     parent.appendChild(nodeDiv);
+
+    contentDiv.tabIndex = 0;
+    if (node.path === this._focusedPath) {
+      contentDiv.focus();
+    }
   }
 
   // Event delegation handler
@@ -311,6 +369,88 @@ class TreeView extends HTMLElement {
       idx++;
     }
     return `${size.toFixed(1)} ${units[idx]}`;
+  }
+
+  // Add new keyboard handler
+  _handleKeyDown(event) {
+    const focused = this._findNodeByPath(this._focusedPath);
+    if (!focused) return;
+
+    switch (event.key) {
+      case 'ArrowRight':
+        if (focused.isDir && !this._expandedPaths.has(focused.path)) {
+          this._toggleExpanded(focused.path);
+        } else if (focused.isDir && focused.children?.length) {
+          this._focusNode(focused.children[0].path);
+        }
+        break;
+      
+      case 'ArrowLeft':
+        if (focused.isDir && this._expandedPaths.has(focused.path)) {
+          this._toggleExpanded(focused.path);
+        } else {
+          const parent = this._findParentNode(focused.path);
+          if (parent) this._focusNode(parent.path);
+        }
+        break;
+
+      case 'ArrowDown':
+        const next = this._findNextNode(focused.path);
+        if (next) this._focusNode(next.path);
+        break;
+
+      case 'ArrowUp':
+        const prev = this._findPrevNode(focused.path);
+        if (prev) this._focusNode(prev.path);
+        break;
+
+      case 'Home':
+        const first = this._findFirstNode();
+        if (first) this._focusNode(first.path);
+        break;
+
+      case 'End':
+        const last = this._findLastNode();
+        if (last) this._focusNode(last.path);
+        break;
+
+      case ' ':
+        if (focused.isTextFile || focused.isDir) {
+          this._handleCheckboxClick({ stopPropagation: () => {} }, focused);
+        }
+        break;
+
+      case 'Enter':
+        if (focused.isDir) {
+          this._toggleExpanded(focused.path);
+        }
+        break;
+
+      default:
+        if (event.key.length === 1) {
+          this._handleTypeAhead(event.key);
+        }
+    }
+  }
+
+  // Add new helper methods
+  _focusNode(path) {
+    this._focusedPath = path;
+    this._render();
+  }
+
+  _handleTypeAhead(char) {
+    clearTimeout(this._searchTimeout);
+    this._searchString += char.toLowerCase();
+    
+    const match = this._findNodeByPrefix(this._searchString);
+    if (match) {
+      this._focusNode(match.path);
+    }
+
+    this._searchTimeout = setTimeout(() => {
+      this._searchString = '';
+    }, 500);
   }
 }
 
