@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="static/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="static/apple-touch-icon.png" />
     <link rel="manifest" href="static/site.webmanifest" />
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-YVHZK6WY90"></script>
     <script>
@@ -15,11 +16,26 @@
         dataLayer.push(arguments);
       }
       gtag('js', new Date());
-
       gtag('config', 'G-YVHZK6WY90');
     </script>
+
+    <!-- PDF.js and XLSX for parsing PDFs/spreadsheets -->
+    <script
+      lang="javascript"
+      src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
+    <!-- localForage from /lib/localforage.min.js -->
+    <script src="./lib/localforage.min.js"></script>
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Convert Directory to LLM XML prompt</title>
+
     <style>
       :root {
         --primary-color: #2563eb;
@@ -76,18 +92,6 @@
         font-weight: 500;
       }
 
-      .form-group input[type='text'] {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid var(--border-color);
-        border-radius: 0.25rem;
-        font-size: 0.875rem;
-      }
-
-      .checkbox-group {
-        margin-bottom: 1rem;
-      }
-
       .button {
         padding: 0.5rem;
         border: 1px solid var(--border-color);
@@ -123,58 +127,6 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-      }
-
-      .tree-controls {
-        display: flex;
-        gap: 0.5rem;
-      }
-
-      #fileTree {
-        height: 100%;
-        overflow-y: auto;
-        padding: 1rem;
-        min-width: 0;
-      }
-
-      .tree-node {
-        display: flex;
-        align-items: center;
-        padding: 0.25rem 0;
-        margin-left: 1.5rem;
-      }
-
-      .tree-node.excluded {
-        opacity: var(--excluded-opacity);
-      }
-
-      .tree-node-content {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        cursor: pointer;
-        padding: 0.25rem;
-        border-radius: 0.25rem;
-      }
-
-      .tree-checkbox {
-        width: 16px;
-        height: 16px;
-        margin-right: 0.5rem;
-      }
-
-      .stats {
-        margin-top: 1rem;
-        padding: 1rem;
-        background-color: #f9fafb;
-        border-radius: 0.25rem;
-        font-size: 0.875rem;
-      }
-
-      .upload-message {
-        text-align: center;
-        padding: 2rem;
-        color: #6b7280;
       }
 
       .container-split {
@@ -313,6 +265,14 @@
         text-align: center;
       }
 
+      .stats {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #f9fafb;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+      }
+
       @media (max-width: 768px) {
         .mobile-warning {
           display: block;
@@ -414,9 +374,8 @@
         </div>
 
         <div class="container-split">
-          <div id="fileTree">
-            <div class="upload-message">Select a directory to view its contents</div>
-          </div>
+          <!-- Our custom web component for the file tree: -->
+          <tree-view id="fileTree"></tree-view>
 
           <div class="selected-files-panel">
             <div class="selected-files-header">
@@ -433,6 +392,7 @@
         </div>
       </div>
     </div>
+
     <div class="donation-container">
       <a
         href="https://www.buymeacoffee.com/hello_nerdzs"
@@ -445,6 +405,8 @@
       </a>
     </div>
 
-    <script src="static/js/app.js"></script>
+    <!-- The Lit-based web component and main logic scripts -->
+    <script type="module" src="static/js/tree-view.js"></script>
+    <script type="module" src="static/js/main.js"></script>
   </body>
 </html>
