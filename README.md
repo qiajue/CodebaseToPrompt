@@ -26,10 +26,13 @@ Try it here: [CodebaseToPrompt Web App](https://path-find-er.github.io/CodebaseT
   Your selections are remembered so you can pick up where you left off.
 
 - **LLM-Ready Output**  
-  Generates a format that’s easy to paste into chatbots and other AI tools.
+  Generates a format that's easy to paste into chatbots and other AI tools.
 
 - **Token Count Estimate**  
   Provides a rough calculation of how many tokens the selected content might use.
+
+- **Flexible Text Selection**  
+  Choose between selecting text or copying directly to clipboard, ensuring compatibility with both HTTP and HTTPS environments.
 
 ---
 
@@ -105,4 +108,4 @@ Contributions are welcome! Feel free to open issues for bugs or requests. For ma
 
 - Open an issue on GitHub for ideas or bug reports  
 - Submit a Pull Request for direct contributions  
-- Reach out via the repo’s issues page if you have questions
+- Reach out via the repo's issues page if you have questions

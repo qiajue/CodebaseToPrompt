@@ -25,3 +25,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     viewer.handleStateChange(currentState);
   }
 });
+
+// Add this with your other event listeners
+document.getElementById('selectTextButton').addEventListener('click', () => {
+  const content = document.getElementById('selectedFilesContent');
+  const range = document.createRange();
+  range.selectNodeContents(content);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+});
