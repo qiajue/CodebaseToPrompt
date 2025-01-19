@@ -1,0 +1,19 @@
+# Ignore hidden system files
+.DS_Store
+Thumbs.db
+
+# Ignore Git and IDE folders
+.git
+.gitignore
+.idea
+.vscode
+
+# Node-related
+node_modules/
+
+# Local environment or coverage artifacts (if any)
+.env
+coverage/
+*.log
+
+# If you have any build artifacts or caches you want excluded, add them here

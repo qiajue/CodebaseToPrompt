@@ -51,8 +51,26 @@ Try it here: [CodebaseToPrompt Web App](https://path-find-er.github.io/CodebaseT
 3. **Pick Files**  
    Expand or collapse directories. Check or uncheck files to decide what gets included.
 
-4. **Copy Output**  
-   View or copy your selected files in the generated prompt format by clicking “Copy to Clipboard.”
+4. **Copy or Select Text**  
+   View or copy your selected files in the generated prompt format by clicking “Copy to Clipboard” or “Select Text” (the latter is useful in HTTP-only environments).
+
+---
+
+## Docker Quickstart
+
+For a self-contained deployment, you can use the included **Dockerfile**:
+
+```bash
+# Build the Docker image
+docker build -t codebasetoprompt .
+
+# Run the container (maps container port 80 to host port 8080)
+docker run -d -p 8080:80 codebasetoprompt
+
+# Then open http://localhost:8080
+```
+
+> **Note:** This simply serves the static files using `nginx:alpine`. If you prefer GitHub Pages or other hosting, you can ignore Docker.
 
 ---
 
