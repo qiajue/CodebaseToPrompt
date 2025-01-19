@@ -2,9 +2,9 @@
 
 A simple tool that converts your local directory into a structured prompt for Large Language Models (LLMs). It helps you pick which files to include or ignore, then outputs everything in a format you can copy directly into an LLM for code review, analysis, or documentation.
 
-[![User Interface](UI.png)](https://path-find-er.github.io/CodebaseToPrompt/)
+[![User Interface](UI.png)](https://hello-nerdo.github.io/CodebaseToPrompt/)
 
-Try it here: [CodebaseToPrompt Web App](https://path-find-er.github.io/CodebaseToPrompt/)
+Try it here: [CodebaseToPrompt Web App](https://hello-nerdo.github.io/CodebaseToPrompt/)
 
 ---
 
@@ -42,7 +42,7 @@ Try it here: [CodebaseToPrompt Web App](https://path-find-er.github.io/CodebaseT
    Clone this repository, then open `index.html` in a modern browser (Chrome or Firefox recommended).
 
    ```bash
-   git clone https://github.com/path-find-er/CodebaseToPrompt.git
+   git clone https://github.com/hello-nerdo/CodebaseToPrompt.git
    ```
 
 2. **Select Your Folder**  
